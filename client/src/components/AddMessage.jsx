@@ -18,12 +18,12 @@ const AddMessage = ({ ThreadId, onAddMessage }) => {
       <div className="p-4 sm:p-6 md:p-8 lg:p-10">
         <div className="flex justify-between mb-4">
           <div className="mr-2">
-            <span className="bg-gray-100 rounded-md font-semibold cursor-pointer p-2">Write</span>
+            {/* <span className="rounded-md font-semibold cursor-pointer p-2">Write</span> */}
           </div>
         </div>
         <textarea
           placeholder="Add your message..."
-          className="p-2 focus:outline-1 focus:outline-blue-500 font-bold border-[0.1px] resize-none h-32 sm:h-36 md:h-40 lg:h-48 border-gray-400 rounded-md w-full md:w-3/4 lg:w-2/3 xl:w-3/4"
+          className="p-2 focus:outline-1 focus:outline-blue-500 font-bold border-[0.1px] resize-none h-22 sm:h-26 md:h-20 lg:h-14 border-gray-400 rounded-md w-full md:w-3/4 lg:w-full xl:w-full"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
         ></textarea>

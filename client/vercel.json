@@ -2,7 +2,7 @@
     "rewrites": [
       {
         "source": "/api/(.*)",
-        "destination": "https://mybasecampserver1.vercel.app/api/$1"
+        "destination": "https://my-basecamp2-umber.vercel.app/$1"
       }
     ]
   }

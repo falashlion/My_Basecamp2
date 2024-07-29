@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const { responseHandler } = require('../utils/responseHandler');
 const messageModel = require('../models/messageModel');
 const ThreadModel = require('../models/ThreadModel');
+const ProjectModel = require('../models/projectModel');
 
 
 exports.getAllMessages = (req, res, next) => {
@@ -62,26 +63,58 @@ exports.createMessage = async (req, res, next) => {
     };
 }
 
-exports.updateMessage = (req, res, next) => {
+exports.updateMessage = async (req, res, next) => {
     const id = req.params.id;
-    const updateOps = {};
-    for (const ops of req.body) {
-        updateOps[ops.propName] = ops.value;
+    const { message } = req.body;
+
+    // Check if at least one of the fields is provided
+    if (!message) {
+        return responseHandler(res, 400, "nothing to be updated", {});
     }
-    messageModel.update({ _id: id }, { $set: updateOps }).exec().then(result => {
+
+    const updateOps = {};
+    if (message !== undefined) updateOps.message = message;
+    
+    const userId = req.user._id;
+
+    try {
+        const message = await messageModel.findById(id);
+        const ThreadId = message.thread_id.toString();
+        console.log(ThreadId);
+        
+        // Find the thread
+        const thread = await ThreadModel.findById(ThreadId.toString());
+        if (!thread) {
+            return responseHandler(res, 404, "No valid entry found for provided ID", {});
+        }
+
+        const projectId = thread.project;
+        // Find the project and populate members
+        const project = await ProjectModel.findById(projectId).populate('members.user', '_id');
+        if (!project) {
+            return responseHandler(res, 404, "No valid entry found for provided ID", {});
+        }
+
+        // Find if the user is a member of the project
+        const member = project.members.find(member => member.user._id.toString() === userId.toString());
+        if (!member) {
+            return responseHandler(res, 403, "User is not a member of this project", {});
+        }
+
+    messageModel.updateOne({ _id: id }, { $set: updateOps }).exec().then(result => {
         responseHandler(res, 200, "message updated successfully", {
             request: {
                 method: 'PATCH',
             }
         });
-    }).catch(err => {
+    })} catch(err ) {
         responseHandler(res, 500, "An error occurred", { error: err });
-    });
+    };
 }
 
 exports.deleteMessage = (req, res, next) => {
     const id = req.params.id;
-    messageModel.remove({ _id: id }).exec().then(result => {
+    messageModel.deleteOne({ _id: id }).exec().then(result => {
         responseHandler(res, 200, "message deleted successfully", {
             request: {
                 method: 'DELETE',

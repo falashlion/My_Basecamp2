@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLoaderData, useNavigate } from 'react-router-dom';
-import { FaArrowLeft } from 'react-icons/fa';
+import { FaArrowLeft, FaEdit, FaTrash } from 'react-icons/fa';
 import { IoPerson } from 'react-icons/io5';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { GrAddCircle } from "react-icons/gr";
 import Dropdown from '../components/Dropdown';
-import Chart from '../components/Chart';
 import { IoRemove } from 'react-icons/io5';
 import AddMessage from '../components/AddMessage';
 import Thread from '../components/Thread';
 import ToggleSwitch from '../components/ToggleSwitch';
 import { Navigate } from 'react-router-dom';
+import EditThreadModal from '../components/EditThreadModal';
+import EditMessageModal from '../components/EditMessageModal'; 
 
 let projectId;
 
@@ -22,6 +23,12 @@ const ProjectPage = ({ deleteProject }) => {
   const [refresh, setRefresh] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState(null);
   const [showThreadModal, setShowThreadModal] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingThreadId, setEditingThreadId] = useState(null);
+  const [editingThreadTitle, setEditingThreadTitle] = useState('');
+  const [isMessageEditModalOpen, setIsMessageEditModalOpen] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingMessageContent, setEditingMessageContent] = useState('');
 
   useEffect(() => {
     projectId = id;
@@ -64,7 +71,7 @@ const ProjectPage = ({ deleteProject }) => {
     if (!confirm) return;
 
     const response = await deleteProject(id);
-    console.log(response);
+   
     if(response.ok) {
 
     toast.success('Project Deleted Successfully');
@@ -212,7 +219,6 @@ const ProjectPage = ({ deleteProject }) => {
   };
 
   const handleDeleteAttachment = async (attachmentId) => {
-    console.log('attachmentId: ' + attachmentId);
       const confirm = window.confirm('Are you sure you want to delete this attachment?');
   
       if (!confirm) return;
@@ -277,6 +283,115 @@ const ProjectPage = ({ deleteProject }) => {
       }
     };
 
+    //  thread Edit and delete 
+    const handleDeleteThread = async (threadId) => {
+      const confirm = window.confirm('Are you sure you want to delete this thread?');
+  
+      if (!confirm) return;
+  
+      const token = localStorage.getItem('token');
+  
+      const response = await fetch(`/api/threads/${threadId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+  
+      if (response.ok) {
+        toast.success('Thread Deleted Successfully');
+        setRefresh(!refresh);
+      } else {
+        toast.error('Failed to delete thread');
+      }
+    };
+  
+    const openEditModal = (threadId, title) => {
+      setEditingThreadId(threadId);
+      setEditingThreadTitle(title);
+      setIsEditModalOpen(true);
+    };
+    
+    const closeEditModal = () => {
+      setIsEditModalOpen(false);
+    };
+    const saveThreadTitle = async (threadId, newTitle) => {
+      const token = localStorage.getItem('token');
+  
+      const response = await fetch(`/api/threads/${threadId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title: newTitle}),
+      });
+  
+      if (response.ok) {
+        toast.success('Thread Updated Successfully');
+        setRefresh(!refresh);
+      } else {
+        toast.error('Failed to update thread');
+      }
+    };
+
+      // Delete message function
+  const handleDeleteMessage = async (messageId) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/signin');
+      return;
+    }
+
+    const response = await fetch(`/api/messages/${messageId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (response.ok) {
+      toast.success('Message Deleted Successfully');
+      setRefresh(!refresh);
+    } else {
+      toast.error('Failed to delete message');
+    }
+  };
+
+   // Open message edit modal
+   const openMessageEditModal = (messageId, content) => {
+    setEditingMessageId(messageId);
+    setEditingMessageContent(content);
+    setIsMessageEditModalOpen(true);
+  }; 
+
+  // Close message edit modal
+  const closeMessageEditModal = () => {
+    setIsMessageEditModalOpen(false);
+  };
+
+  // Save edited message
+  const saveMessageContent = async (messageId, newContent) => {
+    const token = localStorage.getItem('token');
+
+    const response = await fetch(`/api/messages/${messageId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ message: newContent }),
+    });
+
+    if (response.ok) {
+      toast.success('Message Updated Successfully');
+      setRefresh(!refresh);
+    } else {
+      toast.error('Failed to update message');
+    }
+  };
+
+
   return (
     <>
       <section>
@@ -326,39 +441,85 @@ const ProjectPage = ({ deleteProject }) => {
                 <h3 className="text-indigo-800 text-lg font-bold mb-2">Created By</h3>
                 <p className="mb-4">{project.created_by.firstName} {project.created_by.lastName}</p>
               </div>
-
-              <div className="bg-white  p-6 rounded-lg shadow-md mt-6">
+              <div className="bg-white p-6 rounded-lg shadow-md mt-6">
                 <h3 className="text-black text-lg font-bold mb-6">Discussions</h3>
-      
-                  <div>
-                    {project.Threads.map((Thread) => (
-                      <div key={Thread.id} className="mb-6">
-                        <h4 className="text-indigo-600 text-md font-semibold mb-2">{Thread.title}</h4>
-                        <div className="bg-indigo-50 p-4 rounded-lg">
-                          {Thread.messages.map((message) => (
-                            <div key={message.id} className="mb-4">
-                              <p className="text-gray-700"><strong>{message.creator_id.firstName} {message.creator_id.lastName}:</strong> {message.message}</p>
-                              <p className="text-gray-500 text-sm">{new Date(message.createdAt).toLocaleString()}</p>
-                            </div>
-                          ))}
-                          <AddMessage ThreadId={Thread.id} onAddMessage={addMessage}/>
+                <div>
+                  {project.Threads.map((Thread) => (
+                    <div key={Thread.id} className="mb-6">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-indigo-500 text-md font-semibold">{Thread.title}</h4>
+                        <div className="flex">
+                          <button
+                            className="text-indigo-200 hover:text-blue-500 mr-2"
+                            onClick={() => openEditModal(Thread.id, Thread.title)}
+                          >
+                            <FaEdit />
+                          </button>
+                          <button
+                            className="text-red-200 hover:text-red-500"
+                            onClick={() => handleDeleteThread(Thread.id)}
+                          >
+                            <FaTrash />
+                          </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                      <div className="bg-indigo-50 p-4 rounded-lg">
+                        {Thread.messages.map((message) => (
+                          <div key={message.id} className="mb-4">
+                            <div className="flex justify-between items-center">
+                              <p className="text-gray-700"><strong>{message.creator_id.firstName} {message.creator_id.lastName}:</strong> {message.message}</p>
+                              <div className="flex">
+                                <button
+                                  className="text-indigo-100 hover:text-blue-900 mr-2"
+                                  onClick={() => openMessageEditModal(message.id, message.message)}
+                                >
+                                  <FaEdit />
+                                </button>
+                                <button
+                                  className="text-indigo-100 hover:text-red-500"
+                                  onClick={() => handleDeleteMessage(message.id)}
+                                >
+                                  <FaTrash />
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-gray-500 text-sm">{new Date(message.createdAt).toLocaleString()}</p>
+                          </div>
+                        ))}
+                        <AddMessage ThreadId={Thread.id} onAddMessage={addMessage} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
                 <button className="bg-indigo-500 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-full mt-4 block" onClick={() => setShowThreadModal(true)}>
                   <GrAddCircle size={24} className="m-2" />
                 </button>
-              {showThreadModal && (
-                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center p-10 md:p-40 lg:p-60 xl:p-96">
-                  <div className="bg-white bg-opacity-80 p-4 rounded-lg shadow-lg w-full m-4">
-                    <button className="ml-auto text-red-500 hover:text-red-700 " onClick={() => setShowThreadModal(false)}>
-                      close
-                    </button>
-                    <Thread handleCreateThread={handleCreateThread} />
+                {showThreadModal && (
+                  <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center p-10 md:p-40 lg:p-60 xl:p-96">
+                    <div className="bg-white bg-opacity-80 p-4 rounded-lg shadow-lg w-full m-4">
+                      <button className="ml-auto text-red-500 hover:text-red-700" onClick={() => setShowThreadModal(false)}>
+                        Close
+                      </button>
+                      <Thread handleCreateThread={handleCreateThread} />
+                    </div>
                   </div>
-                </div>
-                 )}
+                )}
+                {isEditModalOpen && (
+                  <EditThreadModal
+                    threadId={editingThreadId}
+                    currentTitle={editingThreadTitle}
+                    onClose={closeEditModal}
+                    onSave={saveThreadTitle}
+                  />
+                )}
+                {isMessageEditModalOpen && (
+                  <EditMessageModal
+                    messageId={editingMessageId}
+                    currentContent={editingMessageContent}
+                    onClose={closeMessageEditModal}
+                    onSave={saveMessageContent}
+                  />
+                )}
               </div>
             </main>
 
@@ -369,7 +530,7 @@ const ProjectPage = ({ deleteProject }) => {
                 <h3 className="text-xl">Project Attachments:</h3>
                 {project.attachments.map((attachment, index) => (
                    <div key={index} className="flex items-center my-2 bg-indigo-100 p-2 rounded-lg">
-                   <p className="flex-1 font-bold">{attachment.data}</p>
+                   <p className="flex-1 font-bold">{attachment.type}</p>
                    <button
                       onClick={() => handleDeleteAttachment(attachment._id)}
                       className="ml-2  hover:text-red-900 hover:opacity-100 group-hover:opacity-100 transition-opacity duration-300"
@@ -410,6 +571,7 @@ const ProjectPage = ({ deleteProject }) => {
                   onClick={onDeleteClick}
                   className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-full w-full focus:outline-none focus:shadow-outline mt-4 block"
                 >
+                  {/* <FaTrash className="mr-2 pt-1 flex-right" /> */}
                   Delete Project
                 </button>
               </div>

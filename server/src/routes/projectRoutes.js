@@ -5,17 +5,9 @@ const checkAuth = require('../middleware/auth-check');
 const ProjectController = require('../controllers/ProjectController');
 const attachmentController = require('../controllers/AttachmentController');
 const ThreadController = require('../controllers/ThreadController');
+const upload = require('../../s3Config');
 
-const storage = multer.diskStorage({
-    destination: function(req, file, cb) {
-        cb(null, './uploads/');
-    },
-    filename: function(req, file, cb) {
-        cb(null,file.originalname);
-    }
-});
 
-const File = multer({ storage: storage });
 
 // get all projects
 router.get('/', ProjectController.getAllProjects);
@@ -40,7 +32,7 @@ router.patch('/:id/removeMember', checkAuth, ProjectController.removeMember);
 // Attachments
 
 // upload attachments for a specific project
-router.post('/:id/attachments/create', checkAuth, File.single('attachment'), attachmentController.createAttachment);
+router.post('/:id/attachments/create', checkAuth, upload.single('attachment'), attachmentController.createAttachment);
 
 // get all attachments for a specific project
 router.get('/:id/attachments', checkAuth, attachmentController.getAllAttachments);

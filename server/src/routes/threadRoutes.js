@@ -7,15 +7,15 @@ const MessageController = require('../controllers/MessageController');
 
 // get a specific Thread
 
-router.get('/:threadId', ThreadController.getThread);
+router.get('/:id', ThreadController.getThread);
 
 // update a specific Thread
 
-router.patch('/:threadId', checkAuth, ThreadController.updateThread);
+router.patch('/:id', checkAuth, ThreadController.updateThread);
 
 // delete a specific Thread
 
-router.delete('/:threadId', checkAuth, ThreadController.deleteThread);
+router.delete('/:id', checkAuth, ThreadController.deleteThread);
 
 // messages  
 

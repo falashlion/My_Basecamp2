@@ -2,6 +2,26 @@ const mongoose = require('mongoose');
 const projectModel = require('../models/projectModel');
 const { responseHandler } = require('../utils/responseHandler');
 require('dotenv').config();
+const AWS = require('aws-sdk');
+const multer = require('multer');
+const multerS3 = require('multer-s3');
+require('dotenv').config();
+
+const s3 = new AWS.S3();
+
+// Configure Multer and S3
+const upload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: process.env.AWS_S3_BUCKET,
+    acl: 'public-read',
+    key: function (req, file, cb) {
+      cb(null, `uploads/${Date.now()}_${file.originalname}`);
+    }
+  })
+});
+
+
 
 exports.getAllProjects = (req, res, next) => {
     // const userId = req.user._id;
@@ -218,30 +238,63 @@ exports.deleteProject = async (req, res, next) => {
 
 
 
+// Upload attachments
 exports.uploadAttachments = (req, res, next) => {
-    const attachments = req.files;
     const id = req.params.id;
-    const attachmentPaths = attachments.map(file => file.path);
+  
+    if (!req.files || req.files.length === 0) {
+      return responseHandler(res, 400, "No files were uploaded.", {});
+    }
+  
+    const attachmentUrls = req.files.map(file => file.location); // S3 provides the URL of the uploaded file
+  
+    projectModel.updateOne(
+      { _id: id },
+      { $push: { attachments: { $each: attachmentUrls } } }
+    ).exec()
+      .then(docs => {
+        responseHandler(res, 200, "Attachment added successfully", { project: docs });
+      })
+      .catch(err => {
+        responseHandler(res, 500, "Sorry, an error occurred", { error: err });
+      });
+  };
 
-    projectModel.updateOne({_id: id}, { $push: { attachments: { $each: attachmentPaths } } }).exec().then( docs => {
-        responseHandler(res, 200, "attachment added successfully", {project: docs})
-    }).catch(err => {
-        responseHandler(res, 500, "Sorry an Error", {error:err})
-    });
-};
-
-exports.deleteAttachment = (req, res, next) => {
+  //  Delete attachment
+  
+  exports.deleteAttachment = (req, res, next) => {
     const id = req.params.id;
-    const attachment = req.body.attachment;
-    projectModel.updateOne({_id: id}, { $pull: { attachments: attachment } }).exec().then( docs => {
-        responseHandler(res, 200, "attachment deleted successfully", {project: docs})
-    }).catch(err => {
-        responseHandler(res, 500, "Sorry an Error", {error:err})
+    const attachmentUrl = req.body.attachment;
+  
+    if (!attachmentUrl) {
+      return responseHandler(res, 400, "No attachment URL provided.", {});
+    }
+  
+    // Extract file name from URL for deletion
+    const fileName = attachmentUrl.split('/').pop();
+  
+    const params = {
+      Bucket: process.env.AWS_S3_BUCKET,
+      Key: `uploads/${fileName}`
+    };
+  
+    s3.deleteObject(params, (err, data) => {
+      if (err) {
+        return responseHandler(res, 500, "Failed to delete file from S3", { error: err });
+      }
+  
+      projectModel.updateOne({ _id: id }, { $pull: { attachments: attachmentUrl } })
+        .exec()
+        .then(docs => {
+          responseHandler(res, 200, "Attachment deleted successfully", { project: docs });
+        })
+        .catch(err => {
+          responseHandler(res, 500, "Sorry, an error occurred", { error: err });
+        });
     });
-}
+  };
 
 exports.updateMember = async (req, res, next) => {
-    console.log(`user: ${req.body.user}`);
     const user = req.body.user;
     const projectId = req.params.id;      
     const role = req.body.role || 'user';

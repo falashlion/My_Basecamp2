@@ -48,10 +48,10 @@ exports.createThread = async (req, res, next) => {
         if (!member) {
                 return responseHandler(res, 403, "User is not a member of this project", {});
         }
-        console.log(member.role);
+       
         // Check if the member has admin role
         if (member.role !== 'admin') {
-            return responseHandler(res, 403, "User does not have permission to delete this project", {});
+            return responseHandler(res, 403, "User does not have permission to create a thread for this project", {});
         }
         // Save the new thread
         const thread = await data.save();
@@ -81,9 +81,9 @@ exports.createThread = async (req, res, next) => {
 };
 
 exports.getThread = (req, res, next) => {
-    const id = req.params.threadId;
+    const id = req.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) {
-        return responseHandler(res, 400, "Invalid ID format", { error: "The provided ID is not a valid threadId" });
+        return responseHandler(res, 400, "Invalid ID format", { error: "The provided ID is not a valid id" });
     }
 
     ThreadModel
@@ -113,36 +113,93 @@ exports.getThread = (req, res, next) => {
 };
 
 
-exports.updateThread = (req, res, next) => {
-    const id = req.params.threadId;
-    const updateOps = {};
-    for (const ops of req.body) {
-        updateOps[ops.propName] = ops.value;
+exports.updateThread = async (req, res, next) => {
+    const id = req.params.id;
+    const { title, description } = req.body;
+
+    // Check if at least one of the fields is provided
+    if (!title && !description) {
+        return responseHandler(res, 400, "At least one of title or description is required", {});
     }
-    ThreadModel.update({_id: id}, { $set: updateOps })
-    .exec()
-    .then(docs => {
+
+    const updateOps = {};
+    if (title !== undefined) updateOps.title = title;
+    if (description !== undefined) updateOps.description = description;
+
+    const userId = req.user._id;
+
+    try {
+        // Find the thread
+        const thread = await ThreadModel.findById(id);
+        if (!thread) {
+            return responseHandler(res, 404, "No valid entry found for provided ID", {});
+        }
+
+        const projectId = thread.project;
+        // Find the project and populate members
+        const project = await ProjectModel.findById(projectId).populate('members.user', '_id');
+        if (!project) {
+            return responseHandler(res, 404, "No valid entry found for provided ID", {});
+        }
+
+        // Find if the user is a member of the project
+        const member = project.members.find(member => member.user._id.toString() === userId.toString());
+        if (!member) {
+            return responseHandler(res, 403, "User is not a member of this project", {});
+        }
+
+        // Check if the member has admin role
+        if (member.role !== 'admin') {
+            return responseHandler(res, 403, "User does not have permission to update this thread", {});
+        }
+
+        // Update the thread
+        await ThreadModel.updateOne({ _id: id }, { $set: updateOps });
+
         responseHandler(res, 200, "Thread updated successfully", {
             request: {
                 method: 'PATCH',
             }
         });
-    })
-    .catch(err => {
+    } catch (err) {
         responseHandler(res, 500, "An error occurred", { error: err });
-    });
-}
+    }
+};
 
-exports.deleteThread = (req, res, next) => {
+
+exports.deleteThread = async (req, res, next) => {
+    const userId = req.user._id;
     const id = req.params.id;
-    ThreadModel
-    .remove({ _id: id
-    })
-    .exec()
-    .then(docs => {
-        responseHandler(res, 200, "Thread deleted successfully", {docs });
-    })
-    .catch(err => {
+    try {
+        // find the thread
+        console.log(id);
+        const thread = await ThreadModel.findById(id);
+        console.log(thread);
+        const projectId = thread.project;
+        // Find the project and populate members
+         const project = await ProjectModel.findById(projectId).populate('members.user', '_id');
+           console.log(project); 
+        if (!project) {
+                return responseHandler(res, 404, "No valid entry found for provided ID",{});
+        }
+        // Find if the user is a member of the project
+        const member = project.members.find(member => member.user._id.toString() === userId.toString());
+        if (!member) {
+                return responseHandler(res, 403, "User is not a member of this project", {});
+        }
+       
+        // Check if the member has admin role
+        if (member.role !== 'admin') {
+            return responseHandler(res, 403, "User does not have permission to create a thread for this project", {});
+        }
+        ThreadModel
+        .deleteOne({ _id: id
+        })
+        .exec()
+        .then(docs => {
+            responseHandler(res, 200, "Thread deleted successfully", {docs });
+        })}
+    catch (err) {
         responseHandler(res, 500, "An error occurred", { error: err });
-    });
+    };
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const Thread = ({ handleCreateThread }) => {
+const Thread = ({ handleCreateThread, handleEditThread }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
 
@@ -45,7 +45,7 @@ const Thread = ({ handleCreateThread }) => {
         ></textarea>
         
         <div className="buttons flex p-2 items-center">
-          <div className="btn border rounded-2xl border-indigo-500 p-1 px-4 font-semibold cursor-pointer text-gray-200 ml-2 bg-indigo-500" onClick={onCreateThread}>CREATE</div>
+          <div className="btn border rounded-2xl border-indigo-500 p-1 px-4 font-semibold cursor-pointer text-gray-200 ml-2 bg-indigo-500" onClick={onCreateThread }>CREATE</div>
         </div>
       </div>
     </>
